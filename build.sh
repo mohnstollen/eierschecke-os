@@ -135,6 +135,9 @@ while read -r name url ziel format abdruck; do
     chmod 644 "$INC$ziel"
 done < config/archives/schluessel.conf
 
+# Alles, was ins System wandert, gehört root – unabhängig davon, wem das Repo gehört.
+chown -R 0:0 "$BUILD/config"
+
 # ---------------------------------------------------------------------------
 info "Bootmenü des Live-Mediums gestalten"
 VORLAGEN=/usr/share/live/build/bootloaders
