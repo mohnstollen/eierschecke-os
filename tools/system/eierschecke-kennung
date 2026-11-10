@@ -1,0 +1,14 @@
+#!/bin/sh
+# Sorgt dafür, dass /etc/os-release EierscheckeOS ausweist.
+# Die Datei gehört dem Debian-Paket base-files; eine dpkg-Umleitung verhindert,
+# dass ein Update sie zurücksetzt. Läuft bei jedem Start und tut nichts, wenn alles stimmt.
+VORLAGE=/usr/share/eierschecke/os-release
+[ -f "$VORLAGE" ] || exit 0
+cmp -s "$VORLAGE" /etc/os-release && exit 0
+
+if ! dpkg-divert --list /etc/os-release | grep -q .; then
+    dpkg-divert --quiet --local --rename --divert /etc/os-release.debian --add /etc/os-release || true
+fi
+rm -f /etc/os-release
+cp "$VORLAGE" /etc/os-release
+chmod 644 /etc/os-release

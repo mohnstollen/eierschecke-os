@@ -1,0 +1,14 @@
+[Unit]
+Description=EierscheckeOS: Systemkennung (os-release) setzen
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target display-manager.service
+ConditionFileNotEmpty=/usr/share/eierschecke/os-release
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/eierschecke/kennung
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

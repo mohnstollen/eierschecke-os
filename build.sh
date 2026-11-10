@@ -95,7 +95,7 @@ install -Dm644 tools/update-center/org.eierschecke.update.policy   "$INC/usr/sha
 for einheit in tools/system/*.service tools/system/*.timer; do
     install -Dm644 "$einheit" "$INC/etc/systemd/system/$(basename "$einheit")"
 done
-for skript in ersteinrichtung flatpak-setup brother-setup papirus-ordner; do
+for skript in ersteinrichtung flatpak-setup brother-setup papirus-ordner kennung; do
     install -Dm755 "tools/system/eierschecke-$skript" "$INC/usr/libexec/eierschecke/$skript"
 done
 install -Dm755 tools/system/eierschecke-pdf-ocr  "$INC/usr/bin/eierschecke-pdf-ocr"

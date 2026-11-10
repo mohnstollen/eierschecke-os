@@ -11,9 +11,10 @@ ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
 echo "Europe/Berlin" > /etc/timezone
 
 # --- Kennung des Systems -------------------------------------------------------------------
-# /etc/os-release gehört base-files; per Umleitung bleibt unsere Fassung bei Updates erhalten.
-dpkg-divert --quiet --add --rename --divert /etc/os-release.debian /etc/os-release
-cat > /etc/os-release <<OSR
+# /etc/os-release gehört base-files und ist während des Builds von debootstrap
+# umgeleitet – deshalb hier nur die Vorlage; eingesetzt wird sie beim Systemstart
+# von eierschecke-kennung.service (mit dauerhafter dpkg-Umleitung).
+cat > /usr/share/eierschecke/os-release <<OSR
 PRETTY_NAME="EierscheckeOS $EIERSCHECKE_VERSION ($EIERSCHECKE_CODENAME)"
 NAME="EierscheckeOS"
 VERSION_ID="$EIERSCHECKE_VERSION"
@@ -33,6 +34,7 @@ echo "EierscheckeOS $EIERSCHECKE_VERSION \\n \\l" > /etc/issue
 systemctl enable tlp.service 2>/dev/null || warnung "TLP nicht aktivierbar"
 systemctl mask power-profiles-daemon.service 2>/dev/null || true
 systemctl enable thermald.service 2>/dev/null || true
+systemctl enable eierschecke-kennung.service
 systemctl enable eierschecke-ersteinrichtung.timer
 systemctl enable eierschecke-flatpak-update.timer
 
