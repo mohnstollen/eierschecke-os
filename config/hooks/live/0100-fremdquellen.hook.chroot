@@ -8,6 +8,8 @@ installiere_liste /usr/share/eierschecke/fremdpakete.pakete
 
 # Firefox als Standardbrowser
 if [ -x /usr/bin/firefox ]; then
+    # firefox-esr kommt als Abhängigkeit anderer Pakete mit und wäre doppelt
+    apt-get -y purge firefox-esr 2>/dev/null || true
     update-alternatives --set x-www-browser /usr/bin/firefox 2>/dev/null || true
     update-alternatives --set gnome-www-browser /usr/bin/firefox 2>/dev/null || true
 fi

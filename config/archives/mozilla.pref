@@ -1,3 +1,9 @@
-Package: *
+# Firefox kommt aus dem Mozilla-Repo – aber nur Firefox selbst. Alle anderen
+# Pakete dieser Quelle (z. B. firefox-esr) bleiben bei der Debian-Fassung.
+Package: firefox firefox-l10n-*
 Pin: origin packages.mozilla.org
 Pin-Priority: 1000
+
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 100
