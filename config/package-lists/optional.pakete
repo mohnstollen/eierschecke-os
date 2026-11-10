@@ -1,0 +1,13 @@
+# Optionale Pakete: werden im Hook 0110 einzeln installiert. Fehlt eines in
+# Debian, bricht der Build nicht ab, sondern vermerkt es in build-warnungen.log.
+# "a | b" = erste installierbare Alternative.
+xfce-polkit | mate-polkit | policykit-1-gnome
+network-manager-applet | network-manager-gnome
+orchis-gtk-theme
+foliate
+syncthingtray
+snapper-gui
+firmware-intel-graphics
+firmware-intel-misc
+firmware-mediatek
+fonts-weather-icons

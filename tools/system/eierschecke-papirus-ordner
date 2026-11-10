@@ -1,0 +1,21 @@
+#!/bin/sh
+# Stellt die Ordner des Papirus-Icon-Themes auf Gelb um (entspricht "papirus-folders -C yellow").
+FARBE=yellow
+THEMA=/usr/share/icons/Papirus
+[ -d "$THEMA" ] || exit 0
+
+for groesse in 22x22 24x24 32x32 48x48 64x64; do
+    ordner="$THEMA/$groesse/places"
+    [ -d "$ordner" ] || continue
+    for datei in "$ordner"/folder-"$FARBE".svg "$ordner"/folder-"$FARBE"-*.svg \
+                 "$ordner"/user-"$FARBE".svg "$ordner"/user-"$FARBE"-*.svg; do
+        [ -f "$datei" ] && [ ! -L "$datei" ] || continue
+        name="$(basename "$datei")"
+        ziel="$(echo "$name" | sed "s/-$FARBE//")"
+        [ "$(readlink "$ordner/$ziel" 2>/dev/null)" = "$name" ] || ln -sf "$name" "$ordner/$ziel"
+    done
+done
+for thema in Papirus Papirus-Dark; do
+    [ -d "/usr/share/icons/$thema" ] && gtk-update-icon-cache -q -f "/usr/share/icons/$thema" 2>/dev/null
+done
+exit 0

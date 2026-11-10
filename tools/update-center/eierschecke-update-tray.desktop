@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Update-Center (Benachrichtigung)
+Comment=Prüft regelmäßig auf Updates
+Exec=eierschecke-update-tray
+Icon=system-software-update
+NoDisplay=true
+X-GNOME-Autostart-Delay=60

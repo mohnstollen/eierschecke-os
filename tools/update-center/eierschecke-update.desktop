@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Update-Center
+GenericName=Systemaktualisierung
+Comment=Debian-Pakete, Hersteller-Quellen und Flatpaks in einem Durchgang aktualisieren
+Exec=eierschecke-update
+Icon=system-software-update
+Terminal=false
+Categories=System;Settings;GTK;
+Keywords=Update;Aktualisierung;Upgrade;Flatpak;Snap;

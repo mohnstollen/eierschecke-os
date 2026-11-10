@@ -1,0 +1,22 @@
+# Energie
+tlp
+tlp-rdw
+powertop
+thermald
+
+# Updates, Pakete, Snapshots
+unattended-upgrades
+synaptic
+flatpak
+snapper
+inotify-tools
+gnome-disk-utility
+gparted
+
+# Bootloader für das installierte System (UEFI mit Secure Boot, BIOS als Rückfall)
+grub-efi-amd64
+grub-efi-amd64-signed
+shim-signed
+grub-pc-bin
+efibootmgr
+os-prober

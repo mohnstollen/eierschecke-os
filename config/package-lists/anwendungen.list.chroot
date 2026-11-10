@@ -1,0 +1,23 @@
+# Büro & Internet (Firefox, Brave, Signal, VSCodium, Syncthing, Claude: siehe config/archives)
+libreoffice-writer
+libreoffice-calc
+libreoffice-impress
+libreoffice-draw
+libreoffice-math
+libreoffice-gtk3
+libreoffice-l10n-de
+libreoffice-help-de
+hunspell-de-de
+hyphen-de
+mythes-de
+thunderbird
+thunderbird-l10n-de
+transmission-gtk
+
+# Medien
+calibre
+
+# Entwicklung & Basteln
+geany
+geany-plugins
+thonny

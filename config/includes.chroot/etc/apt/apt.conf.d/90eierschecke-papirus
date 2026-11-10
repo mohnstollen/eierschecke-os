@@ -1,0 +1,2 @@
+// Nach Updates des Icon-Themes die gelben Ordner wiederherstellen
+DPkg::Post-Invoke { "[ -x /usr/libexec/eierschecke/papirus-ordner ] && /usr/libexec/eierschecke/papirus-ordner || true"; };

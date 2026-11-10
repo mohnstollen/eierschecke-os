@@ -1,0 +1,13 @@
+[Unit]
+Description=EierscheckeOS: Flatpaks und Brother-Treiber nachladen
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/eierschecke/ersteinrichtung.erledigt
+# nicht in der Live-Sitzung
+ConditionKernelCommandLine=!boot=live
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/eierschecke/ersteinrichtung
+Nice=10
+IOSchedulingClass=idle

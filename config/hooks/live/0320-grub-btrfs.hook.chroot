@@ -1,0 +1,13 @@
+#!/bin/sh
+# grub-btrfs (Snapshots im GRUB-Menü) ist nicht in Debian – gepinnte Version von GitHub.
+set -e
+. /usr/share/eierschecke/hook-funktionen.sh
+
+TMP="$(mktemp -d)"
+if git clone --quiet --depth 1 --branch "$GRUB_BTRFS_VERSION" https://github.com/Antynea/grub-btrfs "$TMP/grub-btrfs"; then
+    make -C "$TMP/grub-btrfs" install GRUB_UPDATE_EXCLUDE=true \
+        || warnung "grub-btrfs konnte nicht installiert werden"
+else
+    warnung "grub-btrfs nicht ladbar – Snapshots erscheinen nicht im GRUB-Menü"
+fi
+rm -rf "$TMP"

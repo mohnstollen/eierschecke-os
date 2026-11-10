@@ -1,0 +1,2 @@
+# Die APT-Quelle liegt bereits unter /etc/apt/sources.list.d/claude-desktop.list
+CLAUDE_DESKTOP_ADD_REPO="false"

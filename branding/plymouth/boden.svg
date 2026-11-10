@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plymouth-Schicht "boden" – gleiche Geometrie wie branding/logo/eierschecke.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs><clipPath id="stueck"><rect x="28" y="52" width="200" height="156" rx="22"/></clipPath></defs>
+  <g clip-path="url(#stueck)"><rect x="28" y="170" width="200" height="38" fill="#b9864a"/></g>
+</svg>

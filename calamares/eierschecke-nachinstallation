@@ -1,0 +1,93 @@
+#!/bin/bash
+# Läuft am Ende der Calamares-Installation im frisch installierten System (chroot):
+#   1. Swap-Datei in Größe des Arbeitsspeichers + Ruhezustand (nur Btrfs mit /swap)
+#   2. Snapper für / einrichten, grub-btrfs aktivieren
+#   3. Reste des Live-Systems entfernen
+# Fehler in einzelnen Schritten brechen die Installation nicht ab.
+set -u
+log() { echo "eierschecke-nachinstallation: $*"; }
+
+WURZEL_FS="$(findmnt -n -o FSTYPE / 2>/dev/null || true)"
+
+# --- 1. Swap-Datei und Ruhezustand ------------------------------------------------
+swap_einrichten() {
+    [ "$WURZEL_FS" = "btrfs" ] || { log "Wurzel ist kein Btrfs – keine Swap-Datei"; return 0; }
+    mountpoint -q /swap || { log "/swap ist kein eigenes Subvolume – keine Swap-Datei"; return 0; }
+
+    local ram_mib frei_mib datei=/swap/swapfile
+    ram_mib=$(awk '/^MemTotal:/ {printf "%d", ($2 + 1023) / 1024}' /proc/meminfo)
+    frei_mib=$(df --output=avail -BM /swap | tail -n1 | tr -dc '0-9')
+    # Mindestens 15 GiB sollen nach der Swap-Datei frei bleiben
+    if [ "$frei_mib" -lt $((ram_mib + 15360)) ]; then
+        log "Zu wenig Platz für ${ram_mib} MiB Swap (frei: ${frei_mib} MiB) – übersprungen"
+        return 0
+    fi
+
+    rm -f "$datei"
+    chmod 700 /swap
+    btrfs filesystem mkswapfile --size "${ram_mib}m" --uuid clear "$datei" || return 1
+    grep -q "^$datei " /etc/fstab || \
+        printf '%-41s %-14s %-7s %-10s 0 0\n' "$datei" none swap defaults >> /etc/fstab
+
+    # Ruhezustand: Kernel braucht Gerät (UUID) und Position der Datei
+    local uuid versatz
+    uuid=$(findmnt -n -o UUID /swap)
+    versatz=$(btrfs inspect-internal map-swapfile -r "$datei") || return 1
+    [ -n "$uuid" ] && [ -n "$versatz" ] || return 1
+    mkdir -p /etc/default/grub.d /etc/initramfs-tools/conf.d
+    cat > /etc/default/grub.d/eierschecke-ruhezustand.cfg <<CFG
+# Von der EierscheckeOS-Installation erzeugt: Ruhezustand über /swap/swapfile
+GRUB_CMDLINE_LINUX_DEFAULT="\$GRUB_CMDLINE_LINUX_DEFAULT resume=UUID=$uuid resume_offset=$versatz"
+CFG
+    echo "RESUME=UUID=$uuid" > /etc/initramfs-tools/conf.d/resume
+    log "Swap-Datei ${ram_mib} MiB angelegt, Ruhezustand eingerichtet"
+}
+
+# --- 2. Snapper und grub-btrfs ---------------------------------------------------------
+snapper_einrichten() {
+    [ "$WURZEL_FS" = "btrfs" ] || return 0
+    mountpoint -q /.snapshots || { log "/.snapshots ist kein eigenes Subvolume – Snapper übersprungen"; return 0; }
+    local vorlage=/usr/share/snapper/config-templates/default
+    [ -f "$vorlage" ] || vorlage=/etc/snapper/config-templates/default
+    [ -f "$vorlage" ] || { log "Snapper-Vorlage fehlt"; return 1; }
+
+    # "snapper create-config" würde ein eigenes .snapshots-Subvolume anlegen –
+    # wir nutzen das vom Installer eingehängte @snapshots und schreiben die Konfiguration selbst.
+    mkdir -p /etc/snapper/configs
+    sed -e 's|^SUBVOLUME=.*|SUBVOLUME="/"|' \
+        -e 's|^FSTYPE=.*|FSTYPE="btrfs"|' \
+        -e 's|^ALLOW_GROUPS=.*|ALLOW_GROUPS="sudo"|' \
+        -e 's|^TIMELINE_CREATE=.*|TIMELINE_CREATE="no"|' \
+        -e 's|^NUMBER_LIMIT=.*|NUMBER_LIMIT="10"|' \
+        -e 's|^NUMBER_LIMIT_IMPORTANT=.*|NUMBER_LIMIT_IMPORTANT="5"|' \
+        "$vorlage" > /etc/snapper/configs/root
+    if grep -q '^SNAPPER_CONFIGS=' /etc/default/snapper 2>/dev/null; then
+        sed -i 's|^SNAPPER_CONFIGS=.*|SNAPPER_CONFIGS="root"|' /etc/default/snapper
+    else
+        echo 'SNAPPER_CONFIGS="root"' >> /etc/default/snapper
+    fi
+    chmod 750 /.snapshots
+    chgrp sudo /.snapshots 2>/dev/null || true
+    systemctl enable snapper-cleanup.timer 2>/dev/null || true
+    [ -e /usr/lib/systemd/system/grub-btrfsd.service ] && systemctl enable grub-btrfsd.service 2>/dev/null
+    log "Snapper für / eingerichtet"
+}
+
+# --- 3. Aufräumen -------------------------------------------------------------------------
+aufraeumen() {
+    rm -rf /etc/calamares
+    rm -f /usr/bin/eierschecke-installer \
+          /usr/libexec/eierschecke/nachinstallation \
+          /usr/libexec/eierschecke/live-sitzung \
+          /usr/share/applications/eierschecke-installer.desktop \
+          /etc/xdg/autostart/eierschecke-live.desktop
+    # Andere Betriebssysteme im Startmenü anzeigen
+    if [ -f /etc/default/grub ]; then
+        sed -i 's/^#\?GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
+    fi
+}
+
+swap_einrichten    || log "WARNUNG: Swap-Datei/Ruhezustand konnte nicht eingerichtet werden"
+snapper_einrichten || log "WARNUNG: Snapper konnte nicht eingerichtet werden"
+aufraeumen
+exit 0

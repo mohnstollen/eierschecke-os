@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Tray-Symbol des EierscheckeOS Update-Centers: prüft regelmäßig auf Updates."""
+import subprocess
+import threading
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Notify", "0.7")
+from gi.repository import GLib, Gtk, Notify  # noqa: E402
+
+try:
+    gi.require_version("AyatanaAppIndicator3", "0.1")
+    from gi.repository import AyatanaAppIndicator3 as AppIndicator
+except (ValueError, ImportError):
+    AppIndicator = None
+
+import eierschecke_updates as updates  # noqa: E402
+
+ERSTE_PRUEFUNG_S = 120
+INTERVALL_S = 3 * 60 * 60
+SYMBOL_AKTUELL = "system-software-update"
+SYMBOL_UPDATES = "software-update-available"
+
+
+class Tray:
+    def __init__(self):
+        self.gemeldet = 0
+        self.menue = Gtk.Menu()
+        self.zeile = Gtk.MenuItem(label="Suche nach Updates …", sensitive=False)
+        self.menue.append(self.zeile)
+        self.menue.append(Gtk.SeparatorMenuItem())
+        for text, aktion in (("Update-Center öffnen", self.oeffnen),
+                             ("Jetzt prüfen", lambda *_: self.pruefen()),
+                             ("Beenden", lambda *_: Gtk.main_quit())):
+            eintrag = Gtk.MenuItem(label=text)
+            eintrag.connect("activate", aktion)
+            self.menue.append(eintrag)
+        self.menue.show_all()
+
+        if AppIndicator:
+            self.symbol = AppIndicator.Indicator.new(
+                "eierschecke-update", SYMBOL_AKTUELL, AppIndicator.IndicatorCategory.SYSTEM_SERVICES)
+            self.symbol.set_title("Update-Center")
+            self.symbol.set_status(AppIndicator.IndicatorStatus.ACTIVE)
+            self.symbol.set_menu(self.menue)
+        else:  # älterer Weg ohne AppIndicator
+            self.symbol = Gtk.StatusIcon.new_from_icon_name(SYMBOL_AKTUELL)
+            self.symbol.connect("activate", self.oeffnen)
+            self.symbol.connect("popup-menu", lambda _s, knopf, zeit: self.menue.popup(
+                None, None, None, None, knopf, zeit))
+
+        GLib.timeout_add_seconds(ERSTE_PRUEFUNG_S, self.pruefen_einmal)
+        GLib.timeout_add_seconds(INTERVALL_S, self.pruefen)
+
+    def oeffnen(self, *_):
+        subprocess.Popen(["eierschecke-update"])
+
+    def pruefen_einmal(self):
+        self.pruefen()
+        return False
+
+    def pruefen(self):
+        def arbeit():
+            GLib.idle_add(self.anzeigen, *updates.anzahl())
+        threading.Thread(target=arbeit, daemon=True).start()
+        return True
+
+    def anzeigen(self, gesamt, beschreibung):
+        if gesamt:
+            text = f"{gesamt} Update{'s' if gesamt != 1 else ''} verfügbar"
+            symbol = SYMBOL_UPDATES
+        else:
+            text = "System ist aktuell"
+            symbol = SYMBOL_AKTUELL
+        self.zeile.set_label(text)
+        if AppIndicator:
+            self.symbol.set_icon_full(symbol, text)
+            self.symbol.set_title(text)
+            self.symbol.set_label(str(gesamt) if gesamt else "", "")
+        else:
+            self.symbol.set_from_icon_name(symbol)
+            self.symbol.set_tooltip_text(text)
+        # Nur melden, wenn seit der letzten Meldung etwas dazugekommen ist
+        if gesamt > self.gemeldet:
+            meldung = Notify.Notification.new(text, beschreibung, SYMBOL_UPDATES)
+            meldung.add_action("oeffnen", "Update-Center öffnen", lambda *_: self.oeffnen())
+            self.meldung = meldung  # Referenz halten, sonst geht die Aktion verloren
+            try:
+                meldung.show()
+            except GLib.Error:
+                pass
+        self.gemeldet = gesamt
+
+
+if __name__ == "__main__":
+    Notify.init("Update-Center")
+    Tray()
+    Gtk.main()

@@ -1,0 +1,17 @@
+#!/bin/sh
+# Installiert alle Flatpaks aus flatpaks.list, die noch fehlen.
+# Rückgabe 0 nur, wenn danach alle vorhanden sind.
+LISTE=/usr/share/eierschecke/flatpaks.list
+fehler=0
+
+flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || exit 1
+
+while read -r id _rest <&3; do
+    case "$id" in ''|\#*) continue ;; esac
+    if flatpak info --system "$id" >/dev/null 2>&1; then
+        continue
+    fi
+    echo "Flatpak installieren: $id"
+    flatpak install --system --noninteractive --assumeyes flathub "$id" || fehler=1
+done 3< "$LISTE"
+exit "$fehler"

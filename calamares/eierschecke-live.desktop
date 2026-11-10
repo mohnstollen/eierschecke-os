@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=EierscheckeOS Live-Sitzung
+Exec=/usr/libexec/eierschecke/live-sitzung
+NoDisplay=true
+StartupNotify=false

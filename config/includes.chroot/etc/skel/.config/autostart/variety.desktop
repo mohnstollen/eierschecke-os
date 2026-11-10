@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Variety
+Comment=Hintergrundbilder wechseln
+Exec=variety
+Icon=variety
+X-GNOME-Autostart-Delay=15

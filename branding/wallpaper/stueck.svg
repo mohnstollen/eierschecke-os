@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- EierscheckeOS-Hintergrundbild „Stück“ -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#1e1e22"/><stop offset="1" stop-color="#2a2a30"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <g transform="translate(1180 300) scale(2.4)" opacity="0.9">
+    <clipPath id="stueck"><rect x="28" y="52" width="200" height="156" rx="22"/></clipPath>
+    <g clip-path="url(#stueck)">
+      <rect x="28" y="170" width="200" height="38" fill="#b9864a"/>
+      <rect x="28" y="110" width="200" height="60" fill="#f6ecd2"/>
+      <rect x="28" y="52" width="200" height="58" fill="#e8b84a"/>
+      <rect x="28" y="52" width="200" height="14" fill="#c98a2b"/>
+    </g>
+  </g>
+  <rect x="0" y="1020" width="1920" height="60" fill="#000" opacity="0.15"/>
+</svg>

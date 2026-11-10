@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Nur die EierscheckeOS-eigenen Kürzel; die Xfce-Standardkürzel werden beim
+     ersten Start automatisch ergänzt (kein "override" gesetzt). -->
+<channel name="xfce4-keyboard-shortcuts" version="1.0">
+  <property name="commands" type="empty">
+    <property name="custom" type="empty">
+      <property name="F12" type="string" value="xfce4-terminal --drop-down"/>
+      <property name="XF86Tools" type="string" value="xfce4-settings-manager"/>
+      <property name="XF86Search" type="string" value="xfce4-appfinder"/>
+      <property name="XF86LaunchA" type="string" value="rofi -show window"/>
+      <property name="XF86Explorer" type="string" value="thunar"/>
+      <property name="XF86Favorites" type="string" value="thunar"/>
+      <property name="XF86Bluetooth" type="string" value="blueman-manager"/>
+      <property name="XF86Display" type="string" value="xfce4-display-settings --minimal"/>
+      <property name="&lt;Super&gt;e" type="string" value="thunar"/>
+      <property name="&lt;Super&gt;t" type="string" value="xfce4-terminal"/>
+      <property name="&lt;Super&gt;Tab" type="string" value="rofi -show window"/>
+    </property>
+  </property>
+</channel>

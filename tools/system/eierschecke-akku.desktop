@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Akku voll laden
+Comment=Einmalig auf 100 % laden (für unterwegs) – sonst gelten die Ladeschwellen 75/80 %
+Exec=eierschecke-akku
+Icon=battery-full-charging
+Terminal=false
+Categories=System;Settings;
+Keywords=Akku;Batterie;TLP;Ladeschwelle;

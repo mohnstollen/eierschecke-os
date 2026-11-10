@@ -1,0 +1,10 @@
+[Unit]
+Description=EierscheckeOS: Ersteinrichtung versuchen, bis sie erledigt ist
+ConditionPathExists=!/var/lib/eierschecke/ersteinrichtung.erledigt
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=30min
+
+[Install]
+WantedBy=timers.target

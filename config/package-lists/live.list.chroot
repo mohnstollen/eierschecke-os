@@ -1,0 +1,5 @@
+# Live-System und Installer (wird bei der Installation wieder entfernt)
+live-boot
+live-config
+live-config-systemd
+calamares

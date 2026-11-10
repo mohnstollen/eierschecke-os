@@ -1,0 +1,99 @@
+#!/bin/bash
+# EierscheckeOS Update-Center – der Teil, der Root-Rechte braucht (Aufruf über pkexec).
+#
+#   update-backend aktualisieren      alles in einem Durchgang aktualisieren
+#   update-backend snap-an|snap-aus   Snap-Unterstützung ein-/ausschalten
+#   update-backend flatpak-auto-an|flatpak-auto-aus
+#                                     automatische Flatpak-Updates (systemd-Timer)
+#
+# Zeilen der Form "##SCHRITT n/N Titel" wertet die Oberfläche als Fortschritt aus.
+set -u
+export DEBIAN_FRONTEND=noninteractive
+export LC_ALL=C.UTF-8
+PROTOKOLL=/var/log/eierschecke-update.log
+FEHLER=0
+
+schritt() { echo "##SCHRITT $1 $2"; }
+lauf() {
+    echo "\$ $*"
+    "$@" 2>&1 || { echo "!! Fehlgeschlagen: $*"; FEHLER=1; return 1; }
+}
+snapper_bereit() { [ -x /usr/bin/snapper ] && [ -e /etc/snapper/configs/root ]; }
+snap_aktiv()     { [ -x /usr/bin/snap ] && systemctl is-enabled --quiet snapd.socket 2>/dev/null; }
+
+aktualisieren() {
+    local gesamt=5 vorher=""
+    echo "=== Update gestartet: $(date '+%d.%m.%Y %H:%M') ==="
+
+    schritt "1/$gesamt" "Snapshot anlegen"
+    if snapper_bereit; then
+        vorher=$(snapper create --type pre --print-number --cleanup-algorithm number \
+                 --description "Update-Center" 2>&1) && echo "Snapshot Nr. $vorher angelegt" \
+            || { echo "Snapshot nicht möglich: $vorher"; vorher=""; }
+    else
+        echo "Snapper ist nicht eingerichtet (kein Btrfs?) – weiter ohne Snapshot."
+    fi
+
+    schritt "2/$gesamt" "Paketlisten laden"
+    lauf apt-get update
+
+    schritt "3/$gesamt" "Debian-Pakete und Hersteller-Quellen aktualisieren"
+    # Die apt-eigenen Snapper-Snapshots sind hier überflüssig – wir haben schon einen.
+    DISABLE_APT_SNAPSHOT=yes lauf apt-get -y \
+        -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
+        full-upgrade
+    lauf apt-get -y autoremove --purge
+
+    schritt "4/$gesamt" "Flatpaks aktualisieren"
+    if [ -x /usr/bin/flatpak ]; then
+        lauf flatpak update --system --noninteractive --assumeyes
+        flatpak uninstall --system --unused --noninteractive --assumeyes >/dev/null 2>&1 || true
+    fi
+    if snap_aktiv; then
+        echo "-- Snaps --"
+        lauf snap refresh
+    fi
+
+    schritt "5/$gesamt" "Abschluss"
+    if [ -n "$vorher" ]; then
+        snapper create --type post --pre-number "$vorher" --cleanup-algorithm number \
+            --description "Update-Center" >/dev/null 2>&1 || true
+        snapper cleanup number >/dev/null 2>&1 || true
+    fi
+    if [ -e /run/reboot-required ]; then
+        echo "##NEUSTART"
+        echo "Ein Neustart ist nötig, damit alle Updates wirksam werden."
+    fi
+    if [ "$FEHLER" -eq 0 ]; then
+        echo "=== Fertig – alles ist aktuell. ==="
+    else
+        echo "=== Fertig, aber mit Fehlern (siehe oben). ==="
+    fi
+    return "$FEHLER"
+}
+
+[ "$(id -u)" -eq 0 ] || { echo "Dieses Programm braucht Root-Rechte (pkexec)."; exit 1; }
+
+case "${1:-}" in
+    aktualisieren)
+        aktualisieren 2>&1 | tee -a "$PROTOKOLL"
+        exit "${PIPESTATUS[0]}"
+        ;;
+    snap-an)
+        schritt "1/1" "Snap einrichten"
+        lauf apt-get update
+        lauf apt-get -y install snapd && lauf systemctl enable --now snapd.socket snapd.apparmor.service
+        exit "$FEHLER"
+        ;;
+    snap-aus)
+        schritt "1/1" "Snap abschalten"
+        systemctl disable --now snapd.socket snapd.service snapd.apparmor.service 2>&1 || true
+        exit 0
+        ;;
+    flatpak-auto-an)  systemctl enable --now eierschecke-flatpak-update.timer ;;
+    flatpak-auto-aus) systemctl disable --now eierschecke-flatpak-update.timer ;;
+    *)
+        echo "Aufruf: $0 aktualisieren|snap-an|snap-aus|flatpak-auto-an|flatpak-auto-aus"
+        exit 2
+        ;;
+esac

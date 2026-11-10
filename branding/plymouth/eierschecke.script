@@ -1,0 +1,69 @@
+# EierscheckeOS – Boot-Animation
+# Boden → Quark → Eiercreme erscheinen nacheinander als Ladeanzeige,
+# zum Abschluss bräunt die Oberfläche goldgelb.
+
+Window.SetBackgroundTopColor(0.118, 0.118, 0.133);     # #1e1e22
+Window.SetBackgroundBottomColor(0.165, 0.165, 0.188);  # #2a2a30
+
+namen[0] = "boden";
+namen[1] = "quark";
+namen[2] = "creme";
+namen[3] = "kruste";
+
+for (i = 0; i < 4; i++) {
+    bild = Image(namen[i] + ".png");
+    schicht[i].sprite = Sprite(bild);
+    schicht[i].x = Window.GetX() + Window.GetWidth() / 2 - bild.GetWidth() / 2;
+    schicht[i].y = Window.GetY() + Window.GetHeight() / 2 - bild.GetHeight() / 2;
+    schicht[i].sprite.SetPosition(schicht[i].x, schicht[i].y, 10 + i);
+    schicht[i].sprite.SetOpacity(0);
+}
+
+ziel = 0;      # gemeldeter Fortschritt (0..1)
+stand = 0;     # angezeigter Fortschritt, läuft dem Ziel weich hinterher
+bilder = 0;    # Zähler der Bildwiederholungen (50 pro Sekunde)
+
+if (Plymouth.GetMode() != "boot") {
+    # Herunterfahren usw.: fertige Eierschecke zeigen
+    ziel = 1;
+    stand = 1;
+}
+
+fun zeichnen() {
+    bilder++;
+    # Mindesttempo, falls der Bootvorgang keinen Fortschritt meldet (ca. 8 s)
+    ziel = Math.Min(1, Math.Max(ziel, bilder / 400));
+    if (stand < ziel) stand = Math.Min(ziel, stand + 0.012);
+
+    # Drei Schichten teilen sich 0..0,85 – jede blendet ein und senkt sich ab
+    for (i = 0; i < 3; i++) {
+        anteil = Math.Clamp(stand / 0.85 * 3 - i, 0, 1);
+        schicht[i].sprite.SetOpacity(anteil);
+        schicht[i].sprite.SetY(schicht[i].y - (1 - anteil) * 24);
+    }
+    # 0,85..1: die Oberfläche bräunt
+    schicht[3].sprite.SetOpacity(Math.Clamp((stand - 0.85) / 0.15, 0, 1));
+}
+Plymouth.SetRefreshFunction(zeichnen);
+
+fun fortschritt(dauer, anteil) {
+    if (anteil > ziel) ziel = anteil;
+}
+Plymouth.SetBootProgressFunction(fortschritt);
+
+fun beenden() {
+    ziel = 1;
+    stand = 1;
+    zeichnen();
+}
+Plymouth.SetQuitFunction(beenden);
+
+# Meldungen (z. B. Dateisystemprüfung) unter dem Logo
+meldung_sprite = Sprite();
+fun meldung(text) {
+    bild = Image.Text(text, 0.85, 0.83, 0.78);
+    meldung_sprite.SetImage(bild);
+    meldung_sprite.SetPosition(Window.GetX() + Window.GetWidth() / 2 - bild.GetWidth() / 2,
+                               Window.GetY() + Window.GetHeight() * 0.8, 20);
+}
+Plymouth.SetMessageFunction(meldung);

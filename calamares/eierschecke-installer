@@ -1,0 +1,9 @@
+#!/bin/sh
+# Startet den Calamares-Installer aus der Live-Sitzung.
+# (Calamares wertet die fstab des Live-Systems aus – sie wird solange beiseitegelegt.)
+[ -f /etc/fstab ] && sudo mv /etc/fstab /etc/fstab.orig.calamares
+export QT_AUTO_SCREEN_SCALE_FACTOR=1
+xhost +si:localuser:root >/dev/null
+sudo -E calamares "$@"
+xhost -si:localuser:root >/dev/null
+[ -f /etc/fstab.orig.calamares ] && sudo mv /etc/fstab.orig.calamares /etc/fstab

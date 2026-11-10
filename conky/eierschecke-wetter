@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Wetter für das Conky-Widget (Open-Meteo, ohne API-Schlüssel).
+
+Gibt Conky-Text aus. Die Daten liegen in ~/.cache/eierschecke/wetter.json; ohne
+Netz bleiben die letzten Werte stehen.
+"""
+import json
+import os
+import sys
+import time
+import urllib.parse
+import urllib.request
+from datetime import datetime
+
+import eierschecke_konfig as konfig
+
+CACHE = os.path.join(konfig.CACHE_ORDNER, "wetter.json")
+WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
+# WMO-Wettercodes → (Symbol aus DejaVu Sans, Beschreibung)
+WETTERLAGEN = {
+    0: ("☀", "Klar"), 1: ("☀", "Überwiegend klar"), 2: ("⛅", "Teils bewölkt"), 3: ("☁", "Bedeckt"),
+    45: ("≋", "Nebel"), 48: ("≋", "Reifnebel"),
+    51: ("☂", "Leichter Niesel"), 53: ("☂", "Niesel"), 55: ("☂", "Starker Niesel"),
+    56: ("☂", "Gefrierender Niesel"), 57: ("☂", "Gefrierender Niesel"),
+    61: ("☔", "Leichter Regen"), 63: ("☔", "Regen"), 65: ("☔", "Starker Regen"),
+    66: ("☔", "Gefrierender Regen"), 67: ("☔", "Gefrierender Regen"),
+    71: ("❄", "Leichter Schneefall"), 73: ("❄", "Schneefall"), 75: ("❄", "Starker Schneefall"),
+    77: ("❄", "Schneegriesel"),
+    80: ("☔", "Leichte Schauer"), 81: ("☔", "Schauer"), 82: ("☔", "Starke Schauer"),
+    85: ("❄", "Schneeschauer"), 86: ("❄", "Starke Schneeschauer"),
+    95: ("⚡", "Gewitter"), 96: ("⚡", "Gewitter mit Hagel"), 99: ("⚡", "Gewitter mit Hagel"),
+}
+
+
+def abrufen(werte):
+    parameter = urllib.parse.urlencode({
+        "latitude": werte["ORT_BREITE"],
+        "longitude": werte["ORT_LAENGE"],
+        "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m",
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+        "timezone": "auto",
+        "forecast_days": 4,
+    })
+    anfrage = urllib.request.Request(
+        "https://api.open-meteo.com/v1/forecast?" + parameter,
+        headers={"User-Agent": "EierscheckeOS-Widget"})
+    with urllib.request.urlopen(anfrage, timeout=10) as antwort:
+        daten = json.load(antwort)
+    daten["_abgerufen"] = time.time()
+    daten["_ort"] = [werte["ORT_BREITE"], werte["ORT_LAENGE"]]
+    os.makedirs(konfig.CACHE_ORDNER, exist_ok=True)
+    with open(CACHE + ".neu", "w", encoding="utf-8") as datei:
+        json.dump(daten, datei)
+    os.replace(CACHE + ".neu", CACHE)
+    return daten
+
+
+def aus_cache():
+    try:
+        with open(CACHE, encoding="utf-8") as datei:
+            return json.load(datei)
+    except (OSError, ValueError):
+        return None
+
+
+def lage(code):
+    return WETTERLAGEN.get(code, ("☁", "Unbekannt"))
+
+
+def ausgabe(werte, daten):
+    zeilen = []
+    ort = konfig.conky_text(werte["ORT_NAME"])
+    stand = datetime.fromtimestamp(daten["_abgerufen"]).strftime("%H:%M")
+    zeilen.append("${color1}${font Inter:bold:size=11}%s${font}${color}${alignr}${color2}Stand %s${color}" % (ort, stand))
+
+    aktuell = daten["current"]
+    symbol, text = lage(aktuell["weather_code"])
+    zeilen.append("${voffset 4}${font DejaVu Sans:size=26}%s${font}${goto 70}${voffset -8}"
+                  "${font Inter:size=24}%d°${font}${voffset -2}  gefühlt %d°"
+                  % (symbol, round(aktuell["temperature_2m"]), round(aktuell["apparent_temperature"])))
+    zeilen.append("${voffset 2}%s${alignr}Wind %d km/h · Feuchte %d %%"
+                  % (text, round(aktuell["wind_speed_10m"]), round(aktuell["relative_humidity_2m"])))
+
+    tage = daten["daily"]
+    zeilen.append("${voffset 4}${color2}${hr 1}${color}")
+    for i in range(1, min(4, len(tage["time"]))):
+        datum = datetime.strptime(tage["time"][i], "%Y-%m-%d")
+        symbol, _ = lage(tage["weather_code"][i])
+        regen = tage["precipitation_probability_max"][i]
+        zeilen.append("%s${goto 50}${font DejaVu Sans:size=11}%s${font}${goto 90}%d° / %d°${alignr}Regen %s %%"
+                      % (WOCHENTAGE[datum.weekday()], symbol,
+                         round(tage["temperature_2m_min"][i]), round(tage["temperature_2m_max"][i]),
+                         "–" if regen is None else int(regen)))
+    return "\n".join(zeilen)
+
+
+def main():
+    werte = konfig.laden()
+    intervall = konfig.zahl(werte, "WETTER_INTERVALL_MIN", 5, 720) * 60
+    daten = aus_cache()
+    ort = [werte["ORT_BREITE"], werte["ORT_LAENGE"]]
+    veraltet = (daten is None or daten.get("_ort") != ort
+                or time.time() - daten.get("_abgerufen", 0) >= intervall or "--neu" in sys.argv)
+    if veraltet:
+        try:
+            daten = abrufen(werte)
+        except Exception:  # ohne Netz bleiben die letzten Werte stehen
+            if daten is not None and daten.get("_ort") != ort:
+                daten = None
+    if daten is None:
+        print("${color1}${font Inter:bold:size=11}%s${font}${color}\n${color2}Noch keine Wetterdaten (kein Netz?)${color}"
+              % konfig.conky_text(werte["ORT_NAME"]))
+        return
+    try:
+        print(ausgabe(werte, daten))
+    except (KeyError, IndexError, TypeError, ValueError):
+        print("${color2}Wetterdaten nicht lesbar${color}")
+
+
+if __name__ == "__main__":
+    main()

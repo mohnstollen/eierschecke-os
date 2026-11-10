@@ -1,0 +1,6 @@
+/build/
+/ausgabe/
+*.iso
+*.iso.teil-*
+__pycache__/
+*.pyc

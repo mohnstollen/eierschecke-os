@@ -1,0 +1,129 @@
+name: ISO bauen
+
+# Tag-Push (v*)      → Release mit ISO und SHA256-Prüfsumme
+# „Run workflow“     → Test-Build, ISO als Artefakt (7 Tage)
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      flatpaks:
+        description: Flatpaks ins ISO einbauen oder erst beim ersten Start laden
+        type: choice
+        options: [iso, erststart]
+        default: iso
+      kompression:
+        description: SquashFS-Kompression (zstd = schnell, xz = klein)
+        type: choice
+        options: [zstd, xz]
+        default: zstd
+
+permissions:
+  contents: write
+
+concurrency:
+  group: iso-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iso:
+    name: Live-ISO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    env:
+      EIERSCHECKE_FLATPAKS: ${{ inputs.flatpaks || 'iso' }}
+      EIERSCHECKE_KOMPRESSION: ${{ inputs.kompression || 'xz' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Platz auf dem Runner schaffen
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
+          sudo docker image prune --all --force >/dev/null
+          df -h /
+
+      - name: ISO im Debian-Container bauen
+        run: |
+          docker run --rm --privileged \
+            -v "$PWD":/eierschecke -w /eierschecke \
+            -e EIERSCHECKE_FLATPAKS -e EIERSCHECKE_KOMPRESSION \
+            debian:trixie bash -c '
+              set -e
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y live-build debootstrap curl gnupg ca-certificates \
+                librsvg2-bin xorriso squashfs-tools grub-efi-amd64-bin grub-pc-bin \
+                mtools dosfstools cpio
+              ./build.sh
+            '
+          sudo chown -R "$(id -u):$(id -g)" ausgabe
+
+      - name: Build-Protokoll sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-protokoll
+          path: |
+            build/build.log
+            ausgabe/build-warnungen.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Zusammenfassung
+        run: |
+          cd ausgabe
+          {
+            echo "## EierscheckeOS-ISO"
+            echo
+            echo "| Datei | Größe |"
+            echo "|---|---|"
+            for iso in *.iso; do echo "| \`$iso\` | $(du -h "$iso" | cut -f1) |"; done
+            echo
+            echo "Flatpaks: \`$EIERSCHECKE_FLATPAKS\` · Kompression: \`$EIERSCHECKE_KOMPRESSION\`"
+            echo
+            echo '```'
+            cat ./*.sha256
+            echo '```'
+            if [ -s build-warnungen.log ]; then
+              echo
+              echo "### Hinweise aus dem Build"
+              echo '```'
+              cat build-warnungen.log
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: ISO als Artefakt hochladen (Test-Build)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eierschecke-os-iso
+          path: |
+            ausgabe/*.iso
+            ausgabe/*.sha256
+          compression-level: 0
+          retention-days: 7
+
+      - name: Release veröffentlichen
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd ausgabe
+          iso="$(ls *.iso | head -n1)"
+          dateien=("$iso.sha256")
+          hinweis=""
+          # GitHub erlaubt höchstens 2 GiB pro Release-Datei → größere ISOs werden geteilt.
+          if [ "$(stat -c %s "$iso")" -ge $((2 * 1024 * 1024 * 1024)) ]; then
+            split --bytes=1900M --numeric-suffixes=1 --suffix-length=2 "$iso" "$iso.teil-"
+            dateien+=("$iso".teil-*)
+            hinweis=$'\n\n### ISO zusammensetzen\n\nDas ISO ist größer als 2 GiB und deshalb in Teile zerlegt. Alle Teile und die `.sha256`-Datei in einen Ordner laden, dann:\n\n```bash\ncat '"$iso"$'.teil-* > '"$iso"$'\nsha256sum -c '"$iso"$'.sha256\n```\n\nUnter Windows: `copy /b '"$iso"$'.teil-01 + '"$iso"$'.teil-02 + … '"$iso"$'`'
+          else
+            dateien+=("$iso")
+          fi
+          gh release create "$GITHUB_REF_NAME" "${dateien[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "EierscheckeOS ${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            --notes "Live-ISO für amd64 (UEFI/Secure Boot und BIOS). Prüfsumme: siehe \`$iso.sha256\`.$hinweis"

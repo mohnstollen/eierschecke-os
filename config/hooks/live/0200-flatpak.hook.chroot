@@ -1,0 +1,12 @@
+#!/bin/sh
+# Flathub einrichten und – je nach Build-Einstellung – die Flatpaks vorinstallieren.
+set -e
+. /usr/share/eierschecke/hook-funktionen.sh
+
+flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+    || warnung "Flathub konnte nicht eingerichtet werden"
+
+if [ "$FLATPAKS" = "iso" ]; then
+    /usr/libexec/eierschecke/flatpak-setup \
+        || warnung "Nicht alle Flatpaks konnten vorinstalliert werden – sie werden beim ersten Start nachgeladen"
+fi

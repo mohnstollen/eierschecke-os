@@ -1,0 +1,29 @@
+name: Prüfen
+
+# Schnelle statische Prüfungen bei jedem Push (das ISO selbst baut „ISO bauen“).
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Werkzeuge installieren
+        run: sudo apt-get update && sudo apt-get install -y shellcheck libxml2-utils librsvg2-bin
+      - name: Shell-Skripte (shellcheck)
+        run: |
+          grep -rlE '^#!/bin/(ba)?sh' --exclude-dir=.git . | xargs shellcheck -x -S warning
+      - name: Python-Skripte (Syntax)
+        run: |
+          grep -rlE '^#!/usr/bin/env python3' --exclude-dir=.git . | xargs -n1 python3 -m py_compile
+          find . -name '*.py' -not -path './.git/*' | xargs -n1 python3 -m py_compile
+      - name: XML und SVG (wohlgeformt, renderbar)
+        run: |
+          find . \( -name '*.xml' -o -name '*.policy' -o -name '*.svg' \) -not -path './.git/*' | xargs xmllint --noout
+          for svg in $(find branding -name '*.svg'); do rsvg-convert "$svg" > /dev/null; done

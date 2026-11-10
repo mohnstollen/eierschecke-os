@@ -1,0 +1,11 @@
+# Ein- und ausschalten im Update-Center („Flatpaks täglich automatisch aktualisieren“)
+[Unit]
+Description=EierscheckeOS: tägliche Flatpak-Updates
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

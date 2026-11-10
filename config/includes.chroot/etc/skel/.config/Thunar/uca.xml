@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+<action>
+	<icon>utilities-terminal</icon>
+	<name>Terminal hier öffnen</name>
+	<unique-id>1700000000000001-1</unique-id>
+	<command>exo-open --working-directory %f --launch TerminalEmulator</command>
+	<description>Terminal in diesem Ordner öffnen</description>
+	<patterns>*</patterns>
+	<startup-notify/>
+	<directories/>
+</action>
+<action>
+	<icon>application-pdf</icon>
+	<name>PDF durchsuchbar machen</name>
+	<unique-id>1700000000000002-1</unique-id>
+	<command>eierschecke-pdf-ocr %F</command>
+	<description>Texterkennung (Deutsch/Englisch) mit OCRmyPDF – erzeugt eine Kopie „…-durchsuchbar.pdf“</description>
+	<patterns>*.pdf;*.PDF</patterns>
+	<other-files/>
+	<text-files/>
+</action>
+</actions>

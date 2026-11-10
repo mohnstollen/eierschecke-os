@@ -1,0 +1,43 @@
+#!/bin/sh
+# Systemeinstellungen: Sprache, Kennung, Dienste.
+set -e
+. /usr/share/eierschecke/hook-funktionen.sh
+
+# --- Sprache, Tastatur, Zeitzone ---------------------------------------------------------
+sed -i 's/^# *\(de_DE.UTF-8 UTF-8\)/\1/; s/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+locale-gen
+update-locale LANG=de_DE.UTF-8
+ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
+echo "Europe/Berlin" > /etc/timezone
+
+# --- Kennung des Systems -------------------------------------------------------------------
+# /etc/os-release gehört base-files; per Umleitung bleibt unsere Fassung bei Updates erhalten.
+dpkg-divert --quiet --add --rename --divert /etc/os-release.debian /etc/os-release
+cat > /etc/os-release <<OSR
+PRETTY_NAME="EierscheckeOS $EIERSCHECKE_VERSION ($EIERSCHECKE_CODENAME)"
+NAME="EierscheckeOS"
+VERSION_ID="$EIERSCHECKE_VERSION"
+VERSION="$EIERSCHECKE_VERSION ($EIERSCHECKE_CODENAME)"
+VERSION_CODENAME=$DEBIAN_SUITE
+ID=eierschecke
+ID_LIKE=debian
+DEBIAN_VERSION_ID="$DEBIAN_VERSION"
+HOME_URL="$PROJEKT_URL"
+SUPPORT_URL="$PROJEKT_URL/issues"
+BUG_REPORT_URL="$PROJEKT_URL/issues"
+LOGO=eierschecke-logo
+OSR
+echo "EierscheckeOS $EIERSCHECKE_VERSION \\n \\l" > /etc/issue
+
+# --- Dienste ----------------------------------------------------------------------------------
+systemctl enable tlp.service 2>/dev/null || warnung "TLP nicht aktivierbar"
+systemctl mask power-profiles-daemon.service 2>/dev/null || true
+systemctl enable thermald.service 2>/dev/null || true
+systemctl enable eierschecke-ersteinrichtung.timer
+systemctl enable eierschecke-flatpak-update.timer
+
+# Initramfs mit Plymouth-Theme neu erzeugen
+update-initramfs -u -k all || warnung "update-initramfs fehlgeschlagen"
+
+# Aufräumen
+apt-get clean

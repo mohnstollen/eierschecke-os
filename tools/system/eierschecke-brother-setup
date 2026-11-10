@@ -1,0 +1,33 @@
+#!/bin/sh
+# Lädt brscan3 (SANE-Treiber) und brscan-skey (Scan-Taste) von Brother und installiert sie.
+# Rückgabe 0, wenn beide Pakete installiert sind oder die Treiber abgeschaltet wurden.
+. /etc/eierschecke/brother.conf
+[ "${BROTHER_TREIBER:-ja}" = "ja" ] || exit 0
+
+fehler=0
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+holen() {  # holen <Paketname> <Adresse>
+    dpkg -s "$1" >/dev/null 2>&1 && return 0
+    echo "Brother-Treiber laden: $1"
+    curl -fsSL --retry 2 -o "$TMP/$1.deb" "$2" || return 1
+    # Nur installieren, wenn wirklich das erwartete Paket geliefert wurde
+    [ "$(dpkg-deb -f "$TMP/$1.deb" Package 2>/dev/null)" = "$1" ] || return 1
+    dpkg -i --force-all "$TMP/$1.deb" || return 1
+}
+
+holen brscan3 "$BRSCAN3_URL" || fehler=1
+holen brscan-skey "$BRSCAN_SKEY_URL" || fehler=1
+
+# brscan3 legt seine Bibliotheken nach /usr/lib64 – SANE sucht in der Multiarch-Ablage.
+ziel=/usr/lib/x86_64-linux-gnu
+if [ -d /usr/lib64/sane ] && [ -d "$ziel/sane" ]; then
+    for datei in /usr/lib64/sane/libsane-brother3.so*; do
+        [ -e "$datei" ] && ln -sf "$datei" "$ziel/sane/"
+    done
+    for datei in /usr/lib64/libbrscandec3.so*; do
+        [ -e "$datei" ] && ln -sf "$datei" "$ziel/"
+    done
+fi
+exit "$fehler"

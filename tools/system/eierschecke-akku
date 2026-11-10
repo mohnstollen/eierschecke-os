@@ -1,0 +1,9 @@
+#!/bin/sh
+# Lädt den Akku einmalig auf 100 % (für unterwegs). Beim nächsten Abziehen des
+# Netzteils bzw. Neustart gelten wieder die schonenden Schwellen 75/80 %.
+if pkexec tlp fullcharge; then
+    notify-send -i battery-full-charging "Akku wird voll geladen" \
+        "Einmalig bis 100 %. Danach gelten wieder die Ladeschwellen 75/80 %."
+else
+    notify-send -i dialog-error "Akku" "Volles Laden konnte nicht eingeschaltet werden."
+fi

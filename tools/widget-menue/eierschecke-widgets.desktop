@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Desktop-Widgets
+Comment=Wetter, Schlagzeilen und Systemdaten auf dem Desktop ein- und ausschalten
+Exec=eierschecke-widgets
+Icon=eierschecke-logo
+Terminal=false
+Categories=Settings;DesktopSettings;GTK;
+Keywords=Conky;Wetter;Tagesschau;Widget;

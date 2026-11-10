@@ -1,0 +1,13 @@
+#!/bin/sh
+# Firefox, Brave, Signal, VSCodium, Syncthing und Claude Desktop aus den Hersteller-Quellen.
+set -e
+. /usr/share/eierschecke/hook-funktionen.sh
+
+apt-get update || warnung "apt-get update mit Fremdquellen fehlgeschlagen"
+installiere_liste /usr/share/eierschecke/fremdpakete.pakete
+
+# Firefox als Standardbrowser
+if [ -x /usr/bin/firefox ]; then
+    update-alternatives --set x-www-browser /usr/bin/firefox 2>/dev/null || true
+    update-alternatives --set gnome-www-browser /usr/bin/firefox 2>/dev/null || true
+fi

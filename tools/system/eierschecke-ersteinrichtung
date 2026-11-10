@@ -1,0 +1,21 @@
+#!/bin/sh
+# Holt nach dem ersten Start mit Internetverbindung nach, was nicht im ISO steckt:
+#   - fehlende Flatpaks (falls sie beim Build nicht eingebaut wurden)
+#   - die Scanner-Treiber von Brother
+# Läuft per Timer, bis alles erledigt ist.
+MARKE=/var/lib/eierschecke/ersteinrichtung.erledigt
+[ -e "$MARKE" ] && exit 0
+
+# Ohne Netz gleich wieder aufhören – der Timer versucht es später erneut.
+curl -fsI --max-time 10 https://dl.flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || exit 0
+
+fertig=1
+/usr/libexec/eierschecke/flatpak-setup || fertig=0
+/usr/libexec/eierschecke/brother-setup || fertig=0
+
+if [ "$fertig" = 1 ]; then
+    mkdir -p "$(dirname "$MARKE")"
+    date > "$MARKE"
+    systemctl disable eierschecke-ersteinrichtung.timer >/dev/null 2>&1 || true
+fi
+exit 0

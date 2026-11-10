@@ -1,0 +1,15 @@
+#!/bin/sh
+# Autostart in der Live-Sitzung: legt das Installer-Symbol auf den Desktop.
+grep -qw 'boot=live' /proc/cmdline || exit 0
+[ -x /usr/bin/calamares ] || exit 0
+
+DESKTOP="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+ZIEL="$DESKTOP/eierschecke-installer.desktop"
+mkdir -p "$DESKTOP"
+cp /usr/share/applications/eierschecke-installer.desktop "$ZIEL"
+chmod +x "$ZIEL"
+# Xfce: Starter als vertrauenswürdig markieren
+gio set --type=string "$ZIEL" metadata::trusted true 2>/dev/null
+gio set --type=string "$ZIEL" metadata::xfce-exe-checksum \
+    "$(sha256sum "$ZIEL" | cut -d' ' -f1)" 2>/dev/null
+touch "$ZIEL"

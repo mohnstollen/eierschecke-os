@@ -1,0 +1,5 @@
+#!/bin/sh
+# Pakete, deren Fehlen den Build nicht abbrechen soll.
+set -e
+. /usr/share/eierschecke/hook-funktionen.sh
+installiere_liste /usr/share/eierschecke/optional.pakete

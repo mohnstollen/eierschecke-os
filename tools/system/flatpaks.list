@@ -1,0 +1,9 @@
+# Vorinstallierte Flatpaks (Flathub), eine Anwendungs-ID pro Zeile
+io.gitlab.news_flash.NewsFlash      # RSS mit Sync (FreshRSS)
+de.mediathekview.MediathekView      # Mediatheken
+org.telegram.desktop                # Telegram
+org.kde.kasts                       # Podcasts (gPodder-Sync)
+org.gnome.gitlab.somas.Apostrophe   # Markdown
+com.orcaslicer.OrcaSlicer           # 3D-Druck
+io.github.flattool.Warehouse        # Flatpak-Verwaltung
+com.github.d4nj1.tlpui              # TLP-Oberfläche

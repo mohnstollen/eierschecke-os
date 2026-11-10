@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""EierscheckeOS Update-Center: ein Klick aktualisiert alles."""
+import subprocess
+import threading
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gio, GLib, Gtk, Pango  # noqa: E402
+
+import eierschecke_updates as updates  # noqa: E402
+
+
+class UpdateCenter(Gtk.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title="Update-Center")
+        self.set_icon_name("system-software-update")
+        self.set_default_size(620, 420)
+        self.set_border_width(16)
+        self.laeuft = False
+        self.schalter_sperre = False
+
+        kasten = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.add(kasten)
+
+        # Neustart-Hinweis
+        self.neustart = Gtk.InfoBar(message_type=Gtk.MessageType.WARNING, no_show_all=True)
+        self.neustart.get_content_area().add(
+            Gtk.Label(label="Ein Neustart ist nötig, damit alle Updates wirksam werden.", visible=True))
+        self.neustart.add_button("Jetzt neu starten", 1)
+        self.neustart.connect("response", lambda *_: subprocess.Popen(["systemctl", "reboot"]))
+        kasten.pack_start(self.neustart, False, False, 0)
+
+        # Status und großer Knopf
+        kopf = Gtk.Box(spacing=12)
+        self.status = Gtk.Label(xalign=0, wrap=True)
+        self.status.set_markup("<big><b>Suche nach Updates …</b></big>")
+        kopf.pack_start(self.status, True, True, 0)
+        self.knopf = Gtk.Button(label="Alles aktualisieren", sensitive=False, valign=Gtk.Align.CENTER)
+        self.knopf.get_style_context().add_class("suggested-action")
+        self.knopf.connect("clicked", self.aktualisieren)
+        kopf.pack_start(self.knopf, False, False, 0)
+        kasten.pack_start(kopf, False, False, 0)
+
+        self.balken = Gtk.ProgressBar(show_text=True, text=" ")
+        kasten.pack_start(self.balken, False, False, 0)
+
+        # Protokoll
+        self.text = Gtk.TextView(editable=False, cursor_visible=False, monospace=True,
+                                 wrap_mode=Gtk.WrapMode.WORD_CHAR, left_margin=8, right_margin=8)
+        self.text.modify_font(Pango.FontDescription("JetBrains Mono 9"))
+        rollen = Gtk.ScrolledWindow(shadow_type=Gtk.ShadowType.IN)
+        rollen.add(self.text)
+        aufklappen = Gtk.Expander(label="Protokoll")
+        aufklappen.add(rollen)
+        aufklappen.connect("notify::expanded", lambda e, _: rollen.set_min_content_height(200))
+        self.aufklappen = aufklappen
+        kasten.pack_start(aufklappen, True, True, 0)
+
+        # Einstellungen
+        kasten.pack_start(Gtk.Separator(), False, False, 0)
+        self.flatpak_auto = self.einstellung(
+            kasten, "Flatpaks täglich automatisch aktualisieren", updates.flatpak_auto_aktiv(),
+            "flatpak-auto-an", "flatpak-auto-aus")
+        self.snap = self.einstellung(
+            kasten, "Snap-Unterstützung (braucht einen eigenen Hintergrunddienst)", updates.snap_aktiv(),
+            "snap-an", "snap-aus")
+
+        self.pruefen()
+
+    def einstellung(self, kasten, text, aktiv, befehl_an, befehl_aus):
+        zeile = Gtk.Box(spacing=12)
+        zeile.pack_start(Gtk.Label(label=text, xalign=0), True, True, 0)
+        schalter = Gtk.Switch(active=aktiv)
+        schalter.connect("state-set", self.schalter_geaendert, befehl_an, befehl_aus)
+        zeile.pack_start(schalter, False, False, 0)
+        kasten.pack_start(zeile, False, False, 0)
+        return schalter
+
+    # --- Updates zählen (im Hintergrund, dauert wegen Flatpak ein paar Sekunden) -----
+    def pruefen(self):
+        def arbeit():
+            ergebnis = updates.anzahl()
+            GLib.idle_add(self.pruefung_fertig, *ergebnis)
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    def pruefung_fertig(self, gesamt, beschreibung):
+        if self.laeuft:
+            return
+        if gesamt:
+            wort = "Update" if gesamt == 1 else "Updates"
+            self.status.set_markup(f"<big><b>{gesamt} {wort} verfügbar</b></big>\n{beschreibung}")
+        else:
+            self.status.set_markup("<big><b>Alles ist aktuell</b></big>\n"
+                                   "Sicherheitsupdates werden täglich automatisch eingespielt.")
+        self.knopf.set_label("Alles aktualisieren" if gesamt else "Trotzdem prüfen")
+        self.knopf.set_sensitive(True)
+
+    # --- Backend mit Root-Rechten ausführen ------------------------------------------------
+    def aktualisieren(self, *_):
+        self.status.set_markup("<big><b>Aktualisierung läuft …</b></big>\nBitte den Rechner nicht ausschalten.")
+        self.aufklappen.set_expanded(True)
+        self.backend("aktualisieren", self.aktualisierung_fertig)
+
+    def backend(self, befehl, fertig):
+        if self.laeuft:
+            return
+        self.laeuft = True
+        self.knopf.set_sensitive(False)
+        self.flatpak_auto.set_sensitive(False)
+        self.snap.set_sensitive(False)
+        self.balken.set_fraction(0)
+        self.balken.set_text("Warte auf Anmeldung …")
+        self.puls = GLib.timeout_add(150, self.pulsieren)
+        try:
+            prozess = Gio.Subprocess.new(
+                ["pkexec", updates.BACKEND, befehl],
+                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
+        except GLib.Error as fehler:
+            self.schreiben(f"Start fehlgeschlagen: {fehler.message}\n")
+            self.backend_ende(None, fertig, False)
+            return
+        strom = Gio.DataInputStream.new(prozess.get_stdout_pipe())
+        strom.read_line_async(GLib.PRIORITY_DEFAULT, None, self.zeile_gelesen, (prozess, fertig))
+
+    def pulsieren(self):
+        if self.balken.get_fraction() == 0:
+            self.balken.pulse()
+        return self.laeuft
+
+    def zeile_gelesen(self, strom, ergebnis, daten):
+        prozess, fertig = daten
+        zeile, _laenge = strom.read_line_finish_utf8(ergebnis)
+        if zeile is None:
+            prozess.wait_async(None, lambda p, r: self.backend_ende(p, fertig, p.wait_finish(r)))
+            return
+        if zeile.startswith("##SCHRITT "):
+            _, zaehler, titel = zeile.split(" ", 2)
+            nummer, gesamt = (int(z) for z in zaehler.split("/"))
+            self.balken.set_fraction(max(0.02, (nummer - 1) / gesamt))
+            self.balken.set_text(f"Schritt {nummer} von {gesamt}: {titel}")
+            self.schreiben(f"\n── {titel} ──\n")
+        elif zeile.startswith("##NEUSTART"):
+            self.neustart.show()
+        else:
+            self.schreiben(zeile + "\n")
+        strom.read_line_async(GLib.PRIORITY_DEFAULT, None, self.zeile_gelesen, daten)
+
+    def schreiben(self, text):
+        puffer = self.text.get_buffer()
+        puffer.insert(puffer.get_end_iter(), text)
+        self.text.scroll_to_mark(puffer.create_mark(None, puffer.get_end_iter(), False), 0, False, 0, 0)
+
+    def backend_ende(self, prozess, fertig, _gewartet):
+        self.laeuft = False
+        erfolg = prozess is not None and prozess.get_if_exited() and prozess.get_exit_status() == 0
+        abgebrochen = prozess is not None and prozess.get_if_exited() and prozess.get_exit_status() in (126, 127)
+        self.balken.set_fraction(1 if erfolg else 0)
+        self.balken.set_text("Fertig" if erfolg else ("Abgebrochen" if abgebrochen else "Mit Fehlern beendet"))
+        self.knopf.set_sensitive(True)
+        self.flatpak_auto.set_sensitive(True)
+        self.snap.set_sensitive(True)
+        fertig(erfolg)
+
+    def aktualisierung_fertig(self, erfolg):
+        if erfolg:
+            self.pruefung_fertig(0, "")
+        else:
+            self.status.set_markup("<big><b>Aktualisierung nicht abgeschlossen</b></big>\n"
+                                   "Details stehen im Protokoll.")
+        self.pruefen()
+
+    # --- Schalter -------------------------------------------------------------------------------
+    def schalter_geaendert(self, schalter, zustand, befehl_an, befehl_aus):
+        if self.schalter_sperre:
+            return False
+        if self.laeuft:
+            return True
+
+        def fertig(erfolg):
+            self.schalter_sperre = True
+            schalter.set_active(zustand if erfolg else not zustand)
+            schalter.set_state(zustand if erfolg else not zustand)
+            self.schalter_sperre = False
+            self.balken.set_text(" ")
+            self.balken.set_fraction(0)
+        self.backend(befehl_an if zustand else befehl_aus, fertig)
+        return True  # Zustand erst nach Erfolg übernehmen
+
+
+class Anwendung(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id="org.eierschecke.Update")
+
+    def do_activate(self):
+        fenster = self.get_active_window() or UpdateCenter(self)
+        fenster.show_all()
+        fenster.present()
+
+
+if __name__ == "__main__":
+    Anwendung().run()

@@ -1,0 +1,24 @@
+#!/bin/sh
+# Thunar-Rechtsklick „PDF durchsuchbar machen“: Texterkennung mit OCRmyPDF (Deutsch + Englisch).
+# Das Original bleibt erhalten, daneben entsteht „<Name>-durchsuchbar.pdf“.
+[ $# -gt 0 ] || { echo "Aufruf: $0 DATEI.pdf …"; exit 2; }
+
+ok=0
+fehler=0
+for datei in "$@"; do
+    ziel="${datei%.[pP][dD][fF]}-durchsuchbar.pdf"
+    notify-send -i application-pdf "Texterkennung läuft …" "$(basename "$datei")" 2>/dev/null
+    if ocrmypdf -l deu+eng --skip-text --rotate-pages --deskew "$datei" "$ziel" >/dev/null 2>&1; then
+        ok=$((ok + 1))
+    else
+        rm -f "$ziel"
+        fehler=$((fehler + 1))
+    fi
+done
+
+if [ "$fehler" -eq 0 ]; then
+    notify-send -i application-pdf "Texterkennung fertig" "$ok PDF(s) sind jetzt durchsuchbar." 2>/dev/null
+else
+    notify-send -i dialog-error "Texterkennung" "$ok erfolgreich, $fehler fehlgeschlagen." 2>/dev/null
+fi
+exit "$fehler"

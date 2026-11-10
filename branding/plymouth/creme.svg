@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plymouth-Schicht "creme" – gleiche Geometrie wie branding/logo/eierschecke.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs><clipPath id="stueck"><rect x="28" y="52" width="200" height="156" rx="22"/></clipPath></defs>
+  <g clip-path="url(#stueck)"><rect x="28" y="52" width="200" height="58" fill="#e8b84a"/><rect x="28" y="106" width="200" height="4" fill="#000" opacity="0.10"/></g>
+</svg>

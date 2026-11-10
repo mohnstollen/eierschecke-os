@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="theme" type="string" value="Eierschecke-Dark"/>
+    <property name="title_font" type="string" value="Inter Semi-Bold 10"/>
+    <property name="button_layout" type="string" value="O|HMC"/>
+    <property name="workspace_count" type="int" value="2"/>
+    <property name="use_compositing" type="bool" value="true"/>
+    <property name="show_dock_shadow" type="bool" value="false"/>
+    <property name="snap_to_border" type="bool" value="true"/>
+    <property name="tile_on_move" type="bool" value="true"/>
+  </property>
+</channel>

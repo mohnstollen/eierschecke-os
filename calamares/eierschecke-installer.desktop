@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=EierscheckeOS installieren
+GenericName=Installer
+Comment=EierscheckeOS dauerhaft auf diesem Rechner installieren
+Exec=eierschecke-installer
+Icon=eierschecke-logo
+Terminal=false
+Categories=Qt;System;
+StartupWMClass=calamares
+StartupNotify=true

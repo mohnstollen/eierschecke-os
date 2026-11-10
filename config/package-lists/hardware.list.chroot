@@ -1,0 +1,14 @@
+# ThinkPad X280: Firmware, Grafik, Fingerabdruck, Firmware-Updates
+firmware-linux
+firmware-iwlwifi
+firmware-misc-nonfree
+firmware-sof-signed
+firmware-realtek
+firmware-atheros
+intel-microcode
+intel-media-va-driver
+mesa-utils
+vainfo
+fprintd
+libpam-fprintd
+fwupd

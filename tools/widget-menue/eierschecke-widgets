@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""Desktop-Widgets – kleines Einstellungsmenü für das EierscheckeOS-Conky-Widget."""
+import json
+import subprocess
+import threading
+import urllib.parse
+import urllib.request
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk  # noqa: E402
+
+import eierschecke_konfig as konfig  # noqa: E402
+
+
+class Fenster(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Desktop-Widgets")
+        self.set_icon_name("eierschecke-logo")
+        self.set_border_width(16)
+        self.set_resizable(False)
+        self.werte = konfig.laden()
+
+        gitter = Gtk.Grid(row_spacing=10, column_spacing=14)
+        self.add(gitter)
+        self.zeile = 0
+
+        self.schalter = {}
+        for schluessel, text in (("WIDGETS", "Widgets auf dem Desktop anzeigen"),
+                                 ("WETTER", "Wetter"),
+                                 ("NACHRICHTEN", "Tagesschau-Schlagzeilen"),
+                                 ("SYSTEM", "Systemdaten (Akku, CPU, RAM, Datenträger)")):
+            schalter = Gtk.Switch(active=konfig.an(self.werte, schluessel), halign=Gtk.Align.END)
+            self.schalter[schluessel] = schalter
+            self.hinzufuegen(text, schalter)
+
+        self.trenner()
+        self.ort = Gtk.Entry(text=self.werte["ORT_NAME"], width_chars=22)
+        suchen = Gtk.Button(label="Ort suchen")
+        suchen.connect("clicked", self.ort_suchen)
+        self.ort.connect("activate", self.ort_suchen)
+        kasten = Gtk.Box(spacing=6)
+        kasten.pack_start(self.ort, True, True, 0)
+        kasten.pack_start(suchen, False, False, 0)
+        self.hinzufuegen("Ort für das Wetter", kasten)
+        self.koordinaten = Gtk.Label(xalign=0)
+        self.koordinaten.get_style_context().add_class("dim-label")
+        gitter.attach(self.koordinaten, 1, self.zeile, 1, 1)
+        self.zeile += 1
+        self.koordinaten_zeigen()
+
+        self.trenner()
+        self.drehfelder = {}
+        for schluessel, text, minimum, maximum in (
+                ("WETTER_INTERVALL_MIN", "Wetter aktualisieren alle … Minuten", 5, 720),
+                ("NACHRICHTEN_INTERVALL_MIN", "Schlagzeilen aktualisieren alle … Minuten", 5, 720),
+                ("NACHRICHTEN_ANZAHL", "Anzahl der Schlagzeilen", 1, 12)):
+            feld = Gtk.SpinButton.new_with_range(minimum, maximum, 1)
+            feld.set_value(konfig.zahl(self.werte, schluessel, minimum, maximum))
+            feld.set_halign(Gtk.Align.END)
+            self.drehfelder[schluessel] = feld
+            self.hinzufuegen(text, feld)
+
+        self.trenner()
+        knoepfe = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        neu = Gtk.Button(label="Jetzt aktualisieren")
+        neu.connect("clicked", self.jetzt_aktualisieren)
+        anwenden = Gtk.Button(label="Übernehmen")
+        anwenden.get_style_context().add_class("suggested-action")
+        anwenden.connect("clicked", self.uebernehmen)
+        knoepfe.pack_start(neu, False, False, 0)
+        knoepfe.pack_start(anwenden, False, False, 0)
+        gitter.attach(knoepfe, 0, self.zeile, 2, 1)
+
+    def hinzufuegen(self, text, widget):
+        self.get_child().attach(Gtk.Label(label=text, xalign=0, hexpand=True), 0, self.zeile, 1, 1)
+        self.get_child().attach(widget, 1, self.zeile, 1, 1)
+        self.zeile += 1
+
+    def trenner(self):
+        self.get_child().attach(Gtk.Separator(), 0, self.zeile, 2, 1)
+        self.zeile += 1
+
+    def koordinaten_zeigen(self):
+        self.koordinaten.set_text("%s° N, %s° O" % (self.werte["ORT_BREITE"], self.werte["ORT_LAENGE"]))
+
+    # --- Ortssuche über die Geocoding-Schnittstelle von Open-Meteo -----------------
+    def ort_suchen(self, *_):
+        name = self.ort.get_text().strip()
+        if name:
+            self.koordinaten.set_text("Suche …")
+            threading.Thread(target=self.ort_suchen_hintergrund, args=(name,), daemon=True).start()
+
+    def ort_suchen_hintergrund(self, name):
+        adresse = "https://geocoding-api.open-meteo.com/v1/search?" + urllib.parse.urlencode(
+            {"name": name, "count": 8, "language": "de", "format": "json"})
+        try:
+            anfrage = urllib.request.Request(adresse, headers={"User-Agent": "EierscheckeOS-Widget"})
+            with urllib.request.urlopen(anfrage, timeout=10) as antwort:
+                treffer = json.load(antwort).get("results", [])
+        except Exception:
+            treffer = None
+        GLib.idle_add(self.ort_auswaehlen, treffer)
+
+    def ort_auswaehlen(self, treffer):
+        if not treffer:
+            self.koordinaten.set_text("Kein Netz" if treffer is None else "Kein Ort gefunden")
+            return
+        menue = Gtk.Menu()
+        for ort in treffer:
+            beschriftung = ", ".join(t for t in (ort.get("name"), ort.get("admin1"), ort.get("country")) if t)
+            eintrag = Gtk.MenuItem(label=beschriftung)
+            eintrag.connect("activate", self.ort_setzen, ort)
+            menue.append(eintrag)
+        menue.show_all()
+        menue.popup_at_widget(self.ort, 7, 1, None)  # unter dem Eingabefeld
+        self.koordinaten_zeigen()
+
+    def ort_setzen(self, _eintrag, ort):
+        self.werte["ORT_NAME"] = ort["name"]
+        self.werte["ORT_BREITE"] = "%.4f" % ort["latitude"]
+        self.werte["ORT_LAENGE"] = "%.4f" % ort["longitude"]
+        self.ort.set_text(ort["name"])
+        self.koordinaten_zeigen()
+
+    # --- Speichern und Conky neu starten ---------------------------------------------
+    def uebernehmen(self, *_):
+        for schluessel, schalter in self.schalter.items():
+            self.werte[schluessel] = "an" if schalter.get_active() else "aus"
+        for schluessel, feld in self.drehfelder.items():
+            self.werte[schluessel] = str(feld.get_value_as_int())
+        if self.ort.get_text().strip():
+            self.werte["ORT_NAME"] = self.ort.get_text().strip()
+        konfig.speichern(self.werte)
+        subprocess.Popen(["eierschecke-conky", "restart"])
+
+    def jetzt_aktualisieren(self, *_):
+        self.uebernehmen()
+        for befehl in ("eierschecke-wetter", "eierschecke-nachrichten"):
+            subprocess.Popen([befehl, "--neu"], stdout=subprocess.DEVNULL)
+
+
+if __name__ == "__main__":
+    fenster = Fenster()
+    fenster.connect("destroy", Gtk.main_quit)
+    fenster.show_all()
+    Gtk.main()

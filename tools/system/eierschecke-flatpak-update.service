@@ -1,0 +1,12 @@
+[Unit]
+Description=EierscheckeOS: Flatpaks automatisch aktualisieren
+After=network-online.target
+Wants=network-online.target
+ConditionKernelCommandLine=!boot=live
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flatpak update --system --noninteractive --assumeyes
+ExecStartPost=-/usr/bin/flatpak uninstall --system --unused --noninteractive --assumeyes
+Nice=10
+IOSchedulingClass=idle

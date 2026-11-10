@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=EierscheckeOS
+Description=Die Eierschecke baut sich Schicht für Schicht auf.
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/eierschecke
+ScriptFile=/usr/share/plymouth/themes/eierschecke/eierschecke.script

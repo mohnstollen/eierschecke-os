@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=EierscheckeOS Desktop-Widgets
+Comment=Wetter, Tagesschau und Systemdaten auf dem Desktop
+Exec=eierschecke-conky start --autostart
+Icon=eierschecke-logo
+NoDisplay=true
+OnlyShowIn=XFCE;

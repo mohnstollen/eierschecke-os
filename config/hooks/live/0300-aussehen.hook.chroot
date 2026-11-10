@@ -1,0 +1,95 @@
+#!/bin/sh
+# GTK-Theme mit Eiercreme-Akzent, gelbe Ordner, Logo, Wallpaper, Plymouth, GRUB, LightDM.
+set -e
+. /usr/share/eierschecke/hook-funktionen.sh
+B=/usr/share/eierschecke/branding
+
+# --- Orchis-Dark mit eigener Akzentfarbe aus dem Quelltext bauen ------------------
+TMP="$(mktemp -d)"
+if git clone --quiet --depth 1 --branch "$ORCHIS_VERSION" https://github.com/vinceliuice/Orchis-theme "$TMP/orchis"; then
+    sed -i "s/^\(\$yellow-dark:\).*/\1 $AKZENTFARBE;/; s/^\(\$yellow-light:\).*/\1 $AKZENTFARBE;/" \
+        "$TMP/orchis/src/_sass/_color-palette-default.scss"
+    (cd "$TMP/orchis" && ./install.sh --dest /usr/share/themes --name Orchis --theme yellow --color dark) \
+        || warnung "Orchis-Theme mit Akzentfarbe konnte nicht gebaut werden"
+else
+    warnung "Orchis-Quelltext nicht ladbar – es wird das Debian-Paket bzw. Arc-Dark verwendet"
+fi
+rm -rf "$TMP"
+
+# Das eingestellte Theme heißt immer "Eierschecke-Dark" und zeigt auf das beste vorhandene.
+for thema in Orchis-Yellow-Dark Orchis-Dark Arc-Dark; do
+    if [ -d "/usr/share/themes/$thema/gtk-3.0" ]; then
+        ln -sfn "$thema" /usr/share/themes/Eierschecke-Dark
+        echo "GTK-Theme: $thema"
+        break
+    fi
+done
+[ -e /usr/share/themes/Eierschecke-Dark ] || warnung "Kein dunkles GTK-Theme gefunden"
+
+# --- Papirus: gelbe Ordner (auch nach Paket-Updates, siehe apt.conf.d) -----------
+/usr/libexec/eierschecke/papirus-ordner || warnung "Papirus-Ordnerfarbe nicht gesetzt"
+
+# --- Logo als Icon ----------------------------------------------------------------
+install -Dm644 "$B/logo/eierschecke.svg" /usr/share/icons/hicolor/scalable/apps/eierschecke-logo.svg
+install -Dm644 "$B/logo/eierschecke.svg" /usr/share/pixmaps/eierschecke-logo.svg
+for groesse in 48 128 256; do
+    mkdir -p "/usr/share/icons/hicolor/${groesse}x${groesse}/apps"
+    rsvg-convert -w "$groesse" -h "$groesse" "$B/logo/eierschecke.svg" \
+        -o "/usr/share/icons/hicolor/${groesse}x${groesse}/apps/eierschecke-logo.png"
+done
+gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+
+# --- Hintergrundbilder --------------------------------------------------------------
+W=/usr/share/backgrounds/eierschecke
+mkdir -p "$W"
+for svg in "$B"/wallpaper/*.svg; do
+    rsvg-convert -w 1920 -h 1080 "$svg" -o "$W/$(basename "$svg" .svg).png"
+done
+# Unscharfe Variante für den Anmeldebildschirm
+cat > "$W/unscharf.svg" <<SVG
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1920" height="1080">
+  <filter id="b" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="28"/></filter>
+  <rect width="1920" height="1080" fill="#1e1e22"/>
+  <image xlink:href="schichten.png" x="-60" y="-34" width="2040" height="1148" filter="url(#b)"/>
+  <rect width="1920" height="1080" fill="#1e1e22" opacity="0.35"/>
+</svg>
+SVG
+(cd "$W" && rsvg-convert unscharf.svg -o /usr/share/eierschecke/anmeldung.png) \
+    || cp "$W/schichten.png" /usr/share/eierschecke/anmeldung.png
+rm -f "$W/unscharf.svg"
+# Debians Standard-Hintergrund (gilt für alle Bildschirme ohne eigene Einstellung)
+update-alternatives --install /usr/share/images/desktop-base/desktop-background \
+    desktop-background "$W/schichten.png" 100 2>/dev/null || true
+
+# --- Plymouth: die Eierschecke baut sich Schicht für Schicht auf ---------------------
+P=/usr/share/plymouth/themes/eierschecke
+mkdir -p "$P"
+cp "$B/plymouth/eierschecke.plymouth" "$B/plymouth/eierschecke.script" "$P/"
+for schicht in boden quark creme kruste; do
+    rsvg-convert -w 320 -h 320 "$B/plymouth/$schicht.svg" -o "$P/$schicht.png"
+done
+plymouth-set-default-theme eierschecke || warnung "Plymouth-Theme nicht gesetzt"
+
+# --- GRUB-Theme des installierten Systems ---------------------------------------------
+G=/usr/share/grub/themes/eierschecke
+mkdir -p "$G"
+cp "$B/grub/theme.txt" "$G/"
+rsvg-convert -w 1920 -h 1080 "$B/grub/hintergrund.svg" -o "$G/hintergrund.png"
+rsvg-convert -w 160 -h 160 "$B/logo/eierschecke.svg" -o "$G/logo.png"
+schrift="$(fc-match -f '%{file}' 'Inter:style=Regular' 2>/dev/null || true)"
+[ -f "$schrift" ] || schrift=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+for groesse in 14 18; do
+    grub-mkfont -n Eierschecke -s "$groesse" -o "$G/eierschecke-$groesse.pf2" "$schrift" \
+        || warnung "GRUB-Schrift ($groesse) nicht erzeugt"
+done
+
+# --- LightDM ---------------------------------------------------------------------------
+install -Dm644 "$B/lightdm/lightdm-gtk-greeter.conf" /etc/lightdm/lightdm-gtk-greeter.conf
+
+# --- Calamares-Bilder --------------------------------------------------------------------
+C=/etc/calamares/branding/eierschecke
+rsvg-convert -w 256 -h 256 "$B/logo/eierschecke.svg" -o "$C/logo.png"
+rsvg-convert -w 800 -h 450 "$B/wallpaper/schichten.svg" -o "$C/willkommen.png"
+
+# dconf-Vorgaben (dunkles Schema für GTK4-/Flatpak-Anwendungen)
+dconf update || warnung "dconf update fehlgeschlagen"

@@ -1,0 +1,2 @@
+# Brother-Scanner (z. B. DCP-7030) für die Gruppe "scanner" freigeben
+ATTRS{idVendor}=="04f9", ENV{libsane_matched}="yes", MODE="0664", GROUP="scanner"

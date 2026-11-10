@@ -1,0 +1,17 @@
+# Drucken (Samsung ML-1640: splix, Brother DCP-7030: brlaser)
+cups
+system-config-printer
+printer-driver-all
+printer-driver-splix
+printer-driver-brlaser
+ipp-usb
+
+# Scannen und Texterkennung (brscan3/brscan-skey kommen beim ersten Start von Brother)
+sane-utils
+sane-airscan
+simple-scan
+gscan2pdf
+tesseract-ocr
+tesseract-ocr-deu
+tesseract-ocr-eng
+ocrmypdf
