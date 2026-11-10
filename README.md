@@ -27,7 +27,7 @@ und auf dem Desktop **„EierscheckeOS installieren“** wählen.
 ## Selbst bauen
 
 In GitHub Actions: **Actions → ISO bauen → Run workflow** (Test-Build, ISO als Artefakt). Ein
-Tag `v*` erzeugt ein Release. Lokal auf Debian 13 oder MX Linux:
+Tag `v*` erzeugt ein Release; alternativ bei „Run workflow“ ein Release-Tag eintragen. Lokal auf Debian 13 oder MX Linux:
 
 ```bash
 sudo apt install live-build debootstrap curl gnupg librsvg2-bin xorriso squashfs-tools grub-efi-amd64-bin grub-pc-bin mtools dosfstools

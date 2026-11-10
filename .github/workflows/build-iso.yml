@@ -1,7 +1,8 @@
 name: ISO bauen
 
-# Tag-Push (v*)      → Release mit ISO und SHA256-Prüfsumme
-# „Run workflow“     → Test-Build, ISO als Artefakt (7 Tage)
+# Tag-Push (v*)                    → Release mit ISO und SHA256-Prüfsumme
+# „Run workflow“                   → Test-Build, ISO als Artefakt (7 Tage)
+# „Run workflow“ mit Release-Tag   → Release; das Tag wird dabei angelegt
 on:
   push:
     tags: ['v*']
@@ -17,6 +18,10 @@ on:
         type: choice
         options: [zstd, xz]
         default: zstd
+      release_tag:
+        description: Optional – als Release veröffentlichen unter diesem Tag (z. B. v1.0-test1; mit Bindestrich = Vorabversion)
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -31,11 +36,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 330
     env:
+      RELEASE_TAG: ${{ inputs.release_tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
       EIERSCHECKE_FLATPAKS: ${{ inputs.flatpaks || 'iso' }}
       # Releases mit xz (klein), Vorabversionen (Tag mit Bindestrich) mit zstd (schnell)
       EIERSCHECKE_KOMPRESSION: ${{ inputs.kompression || (contains(github.ref_name, '-') && 'zstd' || 'xz') }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Release-Tag prüfen
+        if: env.RELEASE_TAG != ''
+        run: |
+          if ! printf '%s' "$RELEASE_TAG" | grep -qE '^v[0-9][0-9A-Za-z.-]*$'; then
+            echo "::error::Ungültiges Release-Tag: erwartet wird z. B. v1.0 oder v1.0-test1"
+            exit 1
+          fi
 
       - name: Platz auf dem Runner schaffen
         run: |
@@ -104,7 +118,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: ISO als Artefakt hochladen (Test-Build)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && env.RELEASE_TAG == ''
         uses: actions/upload-artifact@v4
         with:
           name: eierschecke-os-iso
@@ -115,7 +129,7 @@ jobs:
           retention-days: 7
 
       - name: Release veröffentlichen
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE_TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -150,9 +164,10 @@ jobs:
           fi
           # Tags mit Bindestrich (v1.0-test1, v1.1-rc1 …) werden als Vorabversion markiert.
           vorab=()
-          case "$GITHUB_REF_NAME" in *-*) vorab=(--prerelease) ;; esac
-          gh release create "$GITHUB_REF_NAME" "${dateien[@]}" \
+          case "$RELEASE_TAG" in *-*) vorab=(--prerelease) ;; esac
+          gh release create "$RELEASE_TAG" "${dateien[@]}" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "EierscheckeOS ${GITHUB_REF_NAME#v}" \
+            --target "$GITHUB_SHA" \
+            --title "EierscheckeOS ${RELEASE_TAG#v}" \
             --notes-file ../release-notizen.md \
             "${vorab[@]}"
