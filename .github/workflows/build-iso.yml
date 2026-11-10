@@ -32,7 +32,8 @@ jobs:
     timeout-minutes: 330
     env:
       EIERSCHECKE_FLATPAKS: ${{ inputs.flatpaks || 'iso' }}
-      EIERSCHECKE_KOMPRESSION: ${{ inputs.kompression || 'xz' }}
+      # Releases mit xz (klein), Vorabversionen (Tag mit Bindestrich) mit zstd (schnell)
+      EIERSCHECKE_KOMPRESSION: ${{ inputs.kompression || (contains(github.ref_name, '-') && 'zstd' || 'xz') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -121,17 +122,37 @@ jobs:
           cd ausgabe
           iso="$(ls *.iso | head -n1)"
           dateien=("$iso.sha256")
-          hinweis=""
+          {
+            echo "Live-ISO für amd64 (UEFI/Secure Boot und BIOS). Prüfsumme: \`$iso.sha256\`."
+            echo
+            echo "Flatpaks: \`$EIERSCHECKE_FLATPAKS\` · Kompression: \`$EIERSCHECKE_KOMPRESSION\`"
+          } > ../release-notizen.md
           # GitHub erlaubt höchstens 2 GiB pro Release-Datei → größere ISOs werden geteilt.
           if [ "$(stat -c %s "$iso")" -ge $((2 * 1024 * 1024 * 1024)) ]; then
             split --bytes=1900M --numeric-suffixes=1 --suffix-length=2 "$iso" "$iso.teil-"
             dateien+=("$iso".teil-*)
-            hinweis=$'\n\n### ISO zusammensetzen\n\nDas ISO ist größer als 2 GiB und deshalb in Teile zerlegt. Alle Teile und die `.sha256`-Datei in einen Ordner laden, dann:\n\n```bash\ncat '"$iso"$'.teil-* > '"$iso"$'\nsha256sum -c '"$iso"$'.sha256\n```\n\nUnter Windows: `copy /b '"$iso"$'.teil-01 + '"$iso"$'.teil-02 + … '"$iso"$'`'
+            {
+              echo
+              echo "### ISO zusammensetzen"
+              echo
+              echo "Das ISO ist größer als 2 GiB und deshalb in Teile zerlegt. Alle Teile und die"
+              echo "\`.sha256\`-Datei in einen Ordner laden, dann:"
+              echo
+              echo '```bash'
+              echo "cat $iso.teil-* > $iso"
+              echo "sha256sum -c $iso.sha256"
+              echo '```'
+              echo
+              echo "Unter Windows (Eingabeaufforderung): \`copy /b $iso.teil-* $iso\`"
+            } >> ../release-notizen.md
           else
             dateien+=("$iso")
           fi
+          # Tags mit Bindestrich (v1.0-test1, v1.1-rc1 …) werden als Vorabversion markiert.
+          vorab=()
+          case "$GITHUB_REF_NAME" in *-*) vorab=(--prerelease) ;; esac
           gh release create "$GITHUB_REF_NAME" "${dateien[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --title "EierscheckeOS ${GITHUB_REF_NAME#v}" \
-            --generate-notes \
-            --notes "Live-ISO für amd64 (UEFI/Secure Boot und BIOS). Prüfsumme: siehe \`$iso.sha256\`.$hinweis"
+            --notes-file ../release-notizen.md \
+            "${vorab[@]}"
