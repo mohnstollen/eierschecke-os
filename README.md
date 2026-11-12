@@ -53,6 +53,7 @@ Einzelheiten und Stellschrauben stehen in [docs/Bauen.md](docs/Bauen.md).
 | `config/bootloaders/` | GRUB-Theme des Live-Mediums |
 | `branding/` | Logo, Hintergrundbilder, Plymouth-Animation, GRUB-Theme, LightDM |
 | `calamares/` | Installer: Ablauf, Btrfs-Schema, Branding, Nachinstallation |
+| `theme/` | [Das Aussehen für jedes andere Xfce](theme/README.md): Installationsskript und Anleitung |
 | `conky/` | Desktop-Widget: Wetter (Open-Meteo), Tagesschau, System |
 | `tools/` | Update-Center, Widget-Menü, Ersteinrichtung, kleine Helfer |
 | `docs/` | Spezifikation, Bau-Anleitung, Hinweise |
