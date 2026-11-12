@@ -10,8 +10,12 @@ import time
 
 import eierschecke_konfig as konfig
 
+# Eigene Vorlage > Installation im Benutzerkonto (conky/install.sh) > systemweit (EierscheckeOS)
 VORLAGEN = [os.path.expanduser("~/.config/eierschecke/conkyrc.vorlage"),
+            os.path.expanduser("~/.local/share/eierschecke/conky/conkyrc.vorlage"),
             "/usr/share/eierschecke/conky/conkyrc.vorlage"]
+# Die Abruf-Skripte liegen neben diesem Skript – so klappt es auch ohne passenden PATH.
+HIER = os.path.dirname(os.path.realpath(__file__))
 CONKYRC = os.path.join(konfig.CACHE_ORDNER, "conkyrc")
 TRENNER = "${voffset 6}${color2}${hr 1}${color}${voffset 4}\n"
 
@@ -35,9 +39,9 @@ def stoppen():
 def conkyrc_schreiben(werte):
     abschnitte = []
     if konfig.an(werte, "WETTER"):
-        abschnitte.append("${execpi 60 eierschecke-wetter}\n")
+        abschnitte.append("${execpi 60 %s}\n" % os.path.join(HIER, "eierschecke-wetter"))
     if konfig.an(werte, "NACHRICHTEN"):
-        abschnitte.append("${execpi 60 eierschecke-nachrichten}\n")
+        abschnitte.append("${execpi 60 %s}\n" % os.path.join(HIER, "eierschecke-nachrichten"))
     if konfig.an(werte, "SYSTEM"):
         abschnitte.append(SYSTEM)
     if not abschnitte:

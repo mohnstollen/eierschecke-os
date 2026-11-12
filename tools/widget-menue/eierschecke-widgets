@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Desktop-Widgets – kleines Einstellungsmenü für das EierscheckeOS-Conky-Widget."""
 import json
+import os
+import shutil
 import subprocess
 import threading
 import urllib.parse
@@ -11,6 +13,15 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk  # noqa: E402
 
 import eierschecke_konfig as konfig  # noqa: E402
+
+
+HIER = os.path.dirname(os.path.realpath(__file__))
+
+
+def programm(name):
+    """Sucht ein Widget-Skript neben diesem Skript, sonst im PATH."""
+    daneben = os.path.join(HIER, name)
+    return daneben if os.path.exists(daneben) else (shutil.which(name) or name)
 
 
 class Fenster(Gtk.Window):
@@ -132,12 +143,12 @@ class Fenster(Gtk.Window):
         if self.ort.get_text().strip():
             self.werte["ORT_NAME"] = self.ort.get_text().strip()
         konfig.speichern(self.werte)
-        subprocess.Popen(["eierschecke-conky", "restart"])
+        subprocess.Popen([programm("eierschecke-conky"), "restart"])
 
     def jetzt_aktualisieren(self, *_):
         self.uebernehmen()
         for befehl in ("eierschecke-wetter", "eierschecke-nachrichten"):
-            subprocess.Popen([befehl, "--neu"], stdout=subprocess.DEVNULL)
+            subprocess.Popen([programm(befehl), "--neu"], stdout=subprocess.DEVNULL)
 
 
 if __name__ == "__main__":

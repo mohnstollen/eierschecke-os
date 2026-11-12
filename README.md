@@ -54,7 +54,7 @@ Einzelheiten und Stellschrauben stehen in [docs/Bauen.md](docs/Bauen.md).
 | `branding/` | Logo, Hintergrundbilder, Plymouth-Animation, GRUB-Theme, LightDM |
 | `calamares/` | Installer: Ablauf, Btrfs-Schema, Branding, Nachinstallation |
 | `theme/` | [Das Aussehen für jedes andere Xfce](theme/README.md): Installationsskript und Anleitung |
-| `conky/` | Desktop-Widget: Wetter (Open-Meteo), Tagesschau, System |
+| `conky/` | Desktop-Widget: Wetter (Open-Meteo), Tagesschau, System – [auch einzeln installierbar](conky/README.md) |
 | `tools/` | Update-Center, Widget-Menü, Ersteinrichtung, kleine Helfer |
 | `docs/` | Spezifikation, Bau-Anleitung, Hinweise |
 
